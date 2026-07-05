@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rick 小红书封面策略师"
+  short_description: "从业务定位生成小红书封面提示词"
+  default_prompt: "Use $rick-xhs-cover-strategist to turn photos, business positioning, and supporting materials into a Xiaohongshu cover strategy and text-to-image prompt."
