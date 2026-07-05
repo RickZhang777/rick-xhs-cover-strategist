@@ -8,11 +8,11 @@
 
 > 以下 4 张为实际使用该 skill 生成的封面效果，覆盖不同策略方向：
 
-| ![AI替你盯团队](images/AI%E6%9B%BF%E4%BD%A0%E7%9B%AF%E5%9B%A2%E9%98%9F.png) | ![从混乱到系统化](images/%E4%BB%8E%E6%B7%B7%E4%B9%B1%E5%88%B0%E7%B3%BB%E7%BB%9F%E5%8C%96.png) |
+| <img src="images/AI替你盯团队.png" width="400"> | <img src="images/从混乱到系统化.png" width="400"> |
 |:---:|:---:|
 | **强痛点型** | **强结果型** |
 
-| ![老板的AI助理](images/%E8%80%81%E6%9D%BF%E7%9A%84AI%E5%8A%A9%E7%90%86.png) | ![团队等你下令](images/%E5%9B%A2%E9%98%9F%E7%AD%89%E4%BD%A0%E4%B8%8B%E4%BB%A4.png) |
+| <img src="images/老板的AI助理.png" width="400"> | <img src="images/团队等你下令.png" width="400"> |
 |:---:|:---:|
 | **强人设型** | **强产品型** |
 
