@@ -25,6 +25,33 @@ This skill is a cover decision system, not a single-style prompt generator. Firs
 - Default output language is Chinese unless the user requests another language.
 - Default cover format is `3:4 竖版小红书封面`.
 
+## Multi-Select Handling
+
+When a step is presented as single-choice but the user selects multiple options, do not treat it as an error immediately.
+
+- If the user selects 2 options, accept both and ask one follow-up question before producing the final plan:
+
+```text
+收到，你选了 X 和 Y。这两个方向都可以测。
+
+你希望我怎么输出？回复编号即可：
+1. 生成两套完整提示词：A/B 两张封面都完整输出，适合真正测试两种方向
+2. 生成一套主方案 + 一个变体：主方案完整输出，另一个只给差异化提示词，适合快速测试
+```
+
+- If the user selects 3 or more options, ask them to reduce to 2 before continuing:
+
+```text
+你选了 3 个以上方向，我建议先测试其中 2 个，否则输出会太散。
+
+请保留最想测试的 2 个编号即可，例如：1 和 5。
+```
+
+- If the two selected options are strategic choices, styles, or cover directions, `两套完整提示词` should produce two complete cover plans and two complete image prompts.
+- If the two selected options are only title choices under the same strategy/style, `主方案 + 变体` is usually better: keep the same visual plan and produce two title/prompt variants.
+- If the user explicitly says `都要完整做`, `都生成`, or `A/B测试`, skip the follow-up question and produce two complete plans.
+- If the user explicitly says `主方案加变体`, use one complete plan plus a concise variant.
+
 ## Image Model Routing
 
 If the user asks which tool to use for final image generation, recommend this order based on current observed quality:
@@ -54,7 +81,9 @@ Maintain a lightweight session context after the first completed cover:
 
 - Personal image set: usable person photos and the preferred main-photo logic.
 - Business background: identity, audience, offer, account tone, and desired action.
-- Cover standard: title style, visual tone, layout habits, color logic, and material usage.
+- Cover standard: title style, selected visual style, visual tone, layout habits, color logic, and material usage.
+- Last selected style: the previous cover style from the 12-style library, plus whether the user wanted to keep or change it.
+- Last cover snapshot: previous business profile, selected emphasis, selected style, cover text logic, title logic, materials used, and final prompt summary.
 - Reusable materials: logos, product screenshots, prototype images, past cover references, or brand references.
 
 When the user asks to create another cover in the same chat, for example `再做一张`, `下一张`, `继续生成`, `换个主题`, or `帮我给这个素材做封面`, do not restart the full three-round intake. Ask one lightweight reuse question:
@@ -68,13 +97,17 @@ When the user asks to create another cover in the same chat, for example `再做
 
 Recommended default is option 1. If the user already says `沿用上次`, `按刚才的风格`, or `继续用这个人设`, treat it as option 1 and only ask for the current cover topic and any new supporting materials.
 
+If the user says `延续风格`, keep the previous selected style without asking again. If the user says `换个风格`, recommend 3 styles that are visually different from the previous cover, while still showing the full 12-style list. If the user keeps generating similar covers without mentioning style, mention once that they can keep the current style or switch style; do not repeatedly interrupt them.
+
 For option 1, ask only:
 
 ```text
 这次封面具体讲什么？如果有新素材可以直接上传；没有素材也可以直接发主题。
 ```
 
-For option 2, keep the personal image set and cover standard, then ask Round 2 again. For option 3, restart Round 1.
+For option 2, keep the personal image set and cover standard, then ask Round 2 again.
+
+For option 3, restart Round 1, but do not delete the last cover snapshot from memory. `全部重新开始` means the current cover restarts its intake, not that the chat forgets reusable business background or previous style. In later rounds, still offer shortcuts such as `沿用上一次业务画像`, `沿用上一次风格`, or `沿用上一次素材逻辑`.
 
 After each completed cover, update the internal cover standard briefly. Do not force the user to approve a long brand guide.
 
@@ -111,7 +144,10 @@ Use this response pattern after photos:
 
 下一步请描述这张封面背后的业务画像：你是谁、服务谁、解决什么问题、这篇内容想讲什么，以及你希望用户点进来后产生什么动作。可以简单写，但要具体到人群和结果。
 
+如果上一张封面已有业务画像，先列出上一张摘要，并提供一个明确选项：`沿用上一次业务画像`。用户回复这句话时，直接沿用上一次的身份、服务对象、问题、账号气质和希望动作，只让用户补充本次内容主题。
+
 请按下面几行回复，简单写也可以：
+- 沿用上一次业务画像：是 / 否
 - 你是谁：
 - 服务谁：
 - 解决什么问题：
@@ -130,7 +166,17 @@ Use this wording:
 ```text
 请描述这张封面背后的业务画像。可以简单写，但要具体到人群和结果。
 
+如果你的服务客户、账号人设和业务方向没有变，可以直接回复：沿用上一次业务画像。
+我会沿用上一张里记录的：
+- 你是谁：……
+- 服务谁：……
+- 解决什么问题：……
+- 希望用户看完做什么：……
+
+你只需要补充这一次的内容主题即可。
+
 请按下面几行回复：
+- 沿用上一次业务画像：是 / 否
 - 你是谁：
 - 服务谁：
 - 解决什么问题：
@@ -155,6 +201,16 @@ Record these fields when present:
 - Account tone: professional, sharp, friendly, premium, practical, technical, founder-like, or teacher-like.
 
 If the user gives a vague profile, provide 2-3 direction options and ask them to choose the main emphasis.
+
+If the user replies `沿用上一次业务画像`, do not ask the same identity/audience questions again. Reuse the latest business profile from the last completed cover and ask only:
+
+```text
+已沿用上一次业务画像。
+
+这一次封面具体讲什么？请补充本次内容主题即可：
+- 这篇内容讲什么：
+- 有没有新的产品/案例/截图素材：
+```
 
 ### Round 3: Supporting Materials
 
@@ -214,6 +270,48 @@ Then recommend 2-4 cover directions and ask the user to pick one:
 - 测评对比版: numbers, ranking, score, before/after, or comparison cards.
 
 Read `references/cover-types.md` when choosing or explaining cover directions.
+Read `references/cover-methodology.md` when the cover needs stronger click logic, when deriving cover text from a topic/transcript, or when deciding whether the cover text should differ from the post title.
+
+## Style Selection
+
+After the cover emphasis/direction is chosen, ask the user to choose a visual style before generating titles. This is required unless the user has already clearly specified a style or says to continue the previous style.
+
+Recommend 3 suitable styles based on the current topic, materials, audience, and platform, but also show the full 12-style list so the user is not locked into only the recommendation.
+
+Use one combined choice step that supports both selection methods:
+
+```text
+请选择这张封面的风格。AI 根据你的内容先推荐 3 个，但你也可以从完整 12 个里任选。
+
+AI 推荐：
+- X. 风格名：适合……
+- Y. 风格名：适合……
+- Z. 风格名：适合……
+
+完整风格库：
+1. 爆款大字压顶风
+2. 巨字拆分冲击风
+3. 痛点红标警示风
+4. 商业顾问杂志风
+5. 访谈人物海报风
+6. 白板框架讲解风
+7. 产品界面主视觉风
+8. 工具流程信息图风
+9. 深色效率工作流风
+10. 教程清单风
+11. 小白科普问答风
+12. 案例结果证明风
+
+选择方式：
+- 按视觉形式选：回复风格编号，例如 4
+- 按内容用途选：回复用途，例如“课程教程”“产品测评”“案例结果”“个人IP”
+- 想延续上一张：回复“延续风格”
+- 想换掉上一张：回复“换个风格”
+```
+
+If the user chooses by content use instead of number, map it to the best style and state the mapping briefly. Read `references/style-library.md` when recommending, mapping, or varying styles.
+
+If the user chooses `沿用上一次风格`, use the immediately previous completed cover's style, not the first cover in the chat. For example, the 5th cover should inherit the 4th cover's style; the 12th cover should inherit the 11th cover's style.
 
 ## Intake Self-Check
 
@@ -221,18 +319,21 @@ Before sending any response during the intake flow, check:
 
 - If this is a follow-up cover in the same chat, did the response offer the 3 reuse choices or infer option 1 from the user's wording?
 - If photos were just uploaded, did the response ask for the business profile?
-- If business profile was just provided, did the response ask for supporting materials or accept `无`?
+- If business profile was requested and prior context exists, did the response include `沿用上一次业务画像` as an option?
+- If business profile was just provided or reused, did the response ask for supporting materials or accept `无`?
 - If supporting materials were just uploaded or skipped, did the response offer strategy choices?
-- If strategy was chosen, did the response offer title choices?
+- If strategy was chosen, did the response offer style choices?
+- If style was chosen, did the response offer title choices?
 - If title was chosen, did the response produce the final output?
 
 If the answer is no, fix the response before sending it. Do not wait silently for the user to guess the next step.
 
 ## Title Design
 
-Generate 3-5 title options after the strategy is chosen. Keep main title short, usually 4-12 Chinese characters. Add subtitle only when it increases clarity.
+Generate 3-5 title options after the strategy and visual style are chosen. Keep main title short, usually 4-12 Chinese characters. Add subtitle only when it increases clarity.
 
 For title formulas and category examples, read `references/title-hooks.md` when needed.
+Read `references/cover-methodology.md` when generating cover text/title pairs. Prefer a short cover trigger that is not merely a shortened post title: contradiction, paradox, loss, number, unique judgment, or suspense.
 
 For each title, briefly label its click logic:
 
@@ -257,11 +358,13 @@ After the user has chosen strategy direction and title, output these sections:
    - State the main risk to avoid.
 
 2. `标题方案`
-   - Show the selected main title.
+   - Show the selected cover text and selected post title when they differ.
+   - Show the selected main title if the user wants only one text layer.
    - Include optional subtitle or 1-line supporting text.
    - Include 2 spare title variants if useful.
 
 3. `视觉方案`
+   - State the selected visual style.
    - Describe photo usage, supporting material usage, layout, color, title position, and hierarchy.
    - Be specific, but do not overfit to pixel coordinates.
 
@@ -278,9 +381,28 @@ After the user has chosen strategy direction and title, output these sections:
 6. `本次封面规范沉淀`
    - Add 3-5 short bullets only.
    - Capture reusable pattern, not a long brand manual: person usage, title style, visual tone, material usage, and color logic.
+   - Include the selected style and whether it should be reused or varied next time.
    - End with: `下次你可以说“沿用上次规范，再做一张……”`.
 
 When the user asks only for a prompt, still include enough strategy and visual plan to make the prompt understandable, but keep it shorter.
+
+When the user chooses `两套完整提示词`, output:
+
+1. `A 方案`
+   - Strategy, title/cover text, visual plan, image prompt, and review checklist.
+2. `B 方案`
+   - Strategy, title/cover text, visual plan, image prompt, and review checklist.
+3. `A/B 测试建议`
+   - State which version is better for clicks, which is better for trust/conversion, and what metric or user behavior to compare.
+
+When the user chooses `一套主方案 + 一个变体`, output the normal final structure for the main plan, then add:
+
+```text
+变体方案
+- 变体目的：
+- 改动点：
+- 变体提示词：
+```
 
 ## Prompt Requirements
 
@@ -292,7 +414,9 @@ Every final prompt must specify:
 - Which uploaded photo is the main person reference.
 - Preserve the person's real identity as much as possible: face shape, facial features, glasses, hairstyle, age impression, expression temperament, body proportion, and clothing should stay close to the original reference. If the image model tends to alter identity, explicitly instruct it to use the original person image almost unchanged; in extreme cases, keep 100% of the original person appearance and only redesign the cover background, text, and supporting elements.
 - Which supporting material is used as product, background, proof, or style reference.
+- Selected visual style from the 12-style library and how it should shape layout, title treatment, and material use.
 - Main title text exactly as selected.
+- If cover text and post title differ, the image prompt should use the selected cover text on the image, while the post title is recorded for publishing/copywriting.
 - Strong readable Chinese title, large type, high contrast, safe area.
 - Person's face is not covered by title or materials.
 - No distorted face, stretched body, extra fingers, broken hands, unreadable text, or cluttered product screenshots.
